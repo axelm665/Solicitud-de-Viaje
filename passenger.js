@@ -1,6 +1,7 @@
 let map, originMarker, destinationMarker;
 let originLocation = null;
 let destinationLocation = null;
+let originAutocomplete, destinationAutocomplete;
 
 function initMap() {
     map = new google.maps.Map(document.getElementById('map'), {
@@ -8,6 +9,7 @@ function initMap() {
         zoom: 14
     });
 
+    // Crear marcadores de origen y destino, inicialmente ocultos
     originMarker = new google.maps.Marker({
         map: map,
         draggable: true,
@@ -22,19 +24,39 @@ function initMap() {
         position: { lat: -27.3876, lng: -58.4560 } // Establecer un destino predeterminado
     });
 
-    // Actualizar la ubicación del origen cuando el marcador se mueve
+    // Crear el Autocomplete para Origen
+    originAutocomplete = new google.maps.places.Autocomplete(document.getElementById('origin'));
+    originAutocomplete.setFields(['address_components', 'geometry']);
+    originAutocomplete.addListener('place_changed', function() {
+        const place = originAutocomplete.getPlace();
+        originLocation = place.geometry.location;
+        originMarker.setPosition(originLocation);
+        map.setCenter(originLocation);
+    });
+
+    // Crear el Autocomplete para Destino
+    destinationAutocomplete = new google.maps.places.Autocomplete(document.getElementById('destination'));
+    destinationAutocomplete.setFields(['address_components', 'geometry']);
+    destinationAutocomplete.addListener('place_changed', function() {
+        const place = destinationAutocomplete.getPlace();
+        destinationLocation = place.geometry.location;
+        destinationMarker.setPosition(destinationLocation);
+        map.setCenter(destinationLocation);
+    });
+
+    // Evento de mover el marcador de origen
     google.maps.event.addListener(originMarker, 'dragend', function(event) {
         originLocation = event.latLng;
         console.log(`Nuevo origen: ${originLocation.lat()}, ${originLocation.lng()}`);
     });
 
-    // Actualizar la ubicación del destino cuando el marcador se mueve
+    // Evento de mover el marcador de destino
     google.maps.event.addListener(destinationMarker, 'dragend', function(event) {
         destinationLocation = event.latLng;
         console.log(`Nuevo destino: ${destinationLocation.lat()}, ${destinationLocation.lng()}`);
     });
 
-    // Configurar el evento de clic en el mapa para seleccionar el destino
+    // Evento para seleccionar destino en el mapa
     google.maps.event.addListener(map, 'click', function(event) {
         if (!destinationLocation) {
             destinationLocation = event.latLng;
@@ -81,4 +103,15 @@ function confirmRide() {
     console.log("Viaje confirmado");
     console.log("Origen:", originLocation.lat(), originLocation.lng());
     console.log("Destino:", destinationLocation.lat(), destinationLocation.lng());
+}
+
+function clearMarkers() {
+    if (originMarker) {
+        originMarker.setMap(null);
+        originLocation = null;
+    }
+    if (destinationMarker) {
+        destinationMarker.setMap(null);
+        destinationLocation = null;
+    }
 }
