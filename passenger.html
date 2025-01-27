@@ -10,12 +10,13 @@
 <body>
     <div class="container">
         <h1>Solicitar Viaje</h1>
-        
-        <div id="map"></div>
-        
-        <input type="text" id="destination" placeholder="Destino">
+
+        <label for="destination">Destino:</label>
+        <input type="text" id="destination" placeholder="Ingresa tu destino">
         <button onclick="calculateFare()">Calcular Tarifa</button>
         <button onclick="confirmRide()">Confirmar Viaje</button>
+
+        <div id="map"></div>
     </div>
 
     <script src="passenger.js"></script>
