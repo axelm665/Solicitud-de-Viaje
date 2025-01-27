@@ -7,38 +7,89 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <style>
-        #map { height: 400px; }
-        body { font-family: Arial, sans-serif; text-align: center; }
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f8f8;
+        }
+        #map { 
+            height: 80vh; 
+            margin-top: 10px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .btn {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .tarifa {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        .estado {
+            font-size: 18px;
+            color: #555;
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
-    <h1>Solicitar Viaje</h1>
-    <div id="map"></div>
-    <p>Tarifa estimada: <span id="tarifa">-</span></p>
-    <button id="confirmarViaje">Confirmar Viaje</button>
-    <p id="estadoViaje"></p>
+
+    <div class="container">
+        <h1>Solicitar Viaje</h1>
+        <p>Selecciona tu origen y destino en el mapa</p>
+        <div id="map"></div>
+        <p class="tarifa">Tarifa estimada: <span id="tarifa">-</span></p>
+        <button id="confirmarViaje" class="btn">Confirmar Viaje</button>
+        <p id="estadoViaje" class="estado"></p>
+    </div>
 
     <script>
         // Inicializar el mapa
         const map = L.map('map').setView([-27.7664, -55.9087], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let origen, destino;
-        
-        // Simulación de conductores
+
+        // Datos de conductores (simulados)
         const conductores = [
             { id: 1, lat: -27.7650, lng: -55.9090, nombre: "Conductor 1" },
             { id: 2, lat: -27.7675, lng: -55.9070, nombre: "Conductor 2" },
             { id: 3, lat: -27.7700, lng: -55.9050, nombre: "Conductor 3" }
         ];
 
-        // Mostrar conductores en el mapa
+        // Mostrar conductores en el mapa con íconos de autos
+        const markerIcon = L.icon({
+            iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Car_icon.svg/512px-Car_icon.svg.png',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
         const markersConductores = conductores.map(conductor => {
-            return L.marker([conductor.lat, conductor.lng])
+            return L.marker([conductor.lat, conductor.lng], { icon: markerIcon })
                     .addTo(map)
                     .bindPopup(conductor.nombre);
         });
 
-        // Selección de origen y destino
+        // Selección de origen y destino en el mapa
         map.on('click', function(e) {
             if (!origen) {
                 origen = e.latlng;
@@ -54,7 +105,7 @@
         function calcularTarifa() {
             const distanciaOrigenDestino = map.distance(origen, destino) / 1000; // km
             const tarifaBase = distanciaOrigenDestino * 100;
-            
+
             // Buscar conductor más cercano
             const conductorMasCercano = obtenerConductorMasCercano();
             const distanciaConductorOrigen = map.distance(origen, conductorMasCercano) / 1000; // km
@@ -63,7 +114,7 @@
             document.getElementById("tarifa").innerText = "$" + tarifaTotal.toFixed(2);
         }
 
-        // Función para obtener al conductor más cercano
+        // Función para obtener el conductor más cercano al origen
         function obtenerConductorMasCercano() {
             let minDistancia = Infinity;
             let conductorMasCercano;
@@ -89,17 +140,19 @@
             asignarConductor();
         });
 
-        // Asignar conductor y mostrar en tiempo real
+        // Asignar conductor más cercano y mostrarlo en el mapa
         function asignarConductor() {
             // Obtener conductor más cercano
             const conductorCercano = obtenerConductorMasCercano();
 
-            // Mostrar el marcador del conductor asignado
-            const marcadorConductor = L.marker(conductorCercano).addTo(map).bindPopup("Conductor asignado");
-            
+            // Mostrar marcador del conductor asignado
+            const marcadorConductor = L.marker(conductorCercano, { icon: markerIcon }).addTo(map)
+                .bindPopup("Conductor asignado");
+
             // Actualizar estado
             document.getElementById("estadoViaje").innerText = "Conductor asignado. En camino...";
         }
     </script>
+
 </body>
 </html>
