@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solicitar Viaje</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&libraries=places&callback=initMap" async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places&callback=initMap" async defer></script>
 </head>
 <body>
     <div class="container">
@@ -16,7 +16,10 @@
         <label for="destination">Destino:</label>
         <input type="text" id="destination" placeholder="Ingresa tu destino o márcalo en el mapa" />
 
-        <button onclick="calculateFare()">Calcular Tarifa</button>
+        <p id="distance">Distancia: - km</p>
+        <p id="fareAuto">Tarifa Auto: -</p>
+        <p id="fareMoto">Tarifa Moto: -</p>
+
         <button onclick="confirmRide()">Confirmar Viaje</button>
         <button onclick="clearMarkers()">Borrar Destino</button>
 
