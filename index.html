@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conductor - Servicio de Transporte</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
-    <script src="driver.js"></script>
+    <title>Página de Inicio - Intermediador de Transporte</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Conductor - Servicio de Transporte</h1>
-    <label for="driverId">ID del Conductor:</label>
-    <input type="text" id="driverId" placeholder="Ingresa tu ID">
-    <button onclick="startTracking()">Activar</button>
-    <button onclick="stopTracking()">Desactivar</button>
-    <button onclick="finishTrip()">Finalizar Viaje</button>
+    <div class="container">
+        <h1>Bienvenido al Servicio de Intermediación de Transporte</h1>
+        <p>Selecciona una opción:</p>
 
-    <div id="map"></div>
+        <div class="buttons">
+            <button onclick="window.location.href='driver.html'">Conductores</button>
+            <button onclick="window.location.href='passenger.html'">Solicitar Viaje</button>
+        </div>
+    </div>
 </body>
 </html>
