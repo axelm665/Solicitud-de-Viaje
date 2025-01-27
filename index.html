@@ -3,122 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Servicio de Transporte</title>
-    <style>
-        /* Estilos básicos */
-        body { font-family: Arial, sans-serif; }
-        #map { height: 500px; width: 100%; }
-        .form-group { margin: 20px 0; }
-    </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&callback=initMap" async defer></script>
-    <script>
-        // Variables globales
-        let map, passengerMarker, driverMarkers = [];
-        let driverStatus = 'Inactivo';
-        let activeDriverId = null;
-
-        // Inicializar el mapa
-        function initMap() {
-            map = new google.maps.Map(document.getElementById('map'), {
-                center: { lat: -27.3876, lng: -58.4560 }, // Coordenadas de Santo Tomé, Corrientes
-                zoom: 14
-            });
-            passengerMarker = new google.maps.Marker({
-                map: map,
-                draggable: true,
-                title: "Tu Ubicación"
-            });
-        }
-
-        // Función para enviar la ubicación al webhook de Make
-        function sendToWebhook(status, driverId = null) {
-            fetch('https://hook.us2.make.com/tk84jh72enqpukn9tkaa6ykohgjaojry', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status: status,
-                    driver_id: driverId,
-                    location: passengerMarker.getPosition(),
-                    active_driver_id: activeDriverId
-                })
-            }).then(response => response.json())
-              .then(data => console.log('Webhook Response:', data))
-              .catch(error => console.error('Error:', error));
-        }
-
-        // Función para activar el conductor
-        function activateDriver(driverId) {
-            driverStatus = 'Activo';
-            activeDriverId = driverId;
-            sendToWebhook('Activo', driverId);
-        }
-
-        // Función para desactivar el conductor
-        function deactivateDriver() {
-            driverStatus = 'Inactivo';
-            sendToWebhook('Inactivo', activeDriverId);
-            activeDriverId = null;
-        }
-
-        // Función para finalizar viaje
-        function finishTrip() {
-            sendToWebhook('Disponible');
-        }
-
-        // Función para calcular la distancia entre dos puntos usando Google Maps API
-        function calculateDistance(lat1, lng1, lat2, lng2) {
-            const origin = new google.maps.LatLng(lat1, lng1);
-            const destination = new google.maps.LatLng(lat2, lng2);
-            const service = new google.maps.DistanceMatrixService();
-            service.getDistanceMatrix(
-                {
-                    origins: [origin],
-                    destinations: [destination],
-                    travelMode: google.maps.TravelMode.DRIVING
-                },
-                (response, status) => {
-                    if (status === 'OK') {
-                        const distance = response.rows[0].elements[0].distance.text;
-                        alert('Distancia: ' + distance);
-                    }
-                }
-            );
-        }
-
-        // Función para asignar conductor al pasajero
-        function assignDriver(driver) {
-            new google.maps.Marker({
-                position: driver.location,
-                map: map,
-                icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-                title: driver.name
-            });
-            alert('Conductor asignado: ' + driver.name);
-        }
-    </script>
+    <title>Conductor - Servicio de Transporte</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+    <script src="driver.js"></script>
 </head>
 <body>
-
-    <h1>Servicio de Transporte</h1>
-
-    <div class="form-group">
-        <h2>Inicio de sesión</h2>
-        <label for="userId">ID de Conductor:</label>
-        <input type="text" id="userId" placeholder="Ingresa tu ID">
-        <button onclick="activateDriver(document.getElementById('userId').value)">Activar Conductor</button>
-        <button onclick="deactivateDriver()">Desactivar Conductor</button>
-        <button onclick="finishTrip()">Finalizar Viaje</button>
-    </div>
+    <h1>Conductor - Servicio de Transporte</h1>
+    <label for="driverId">ID del Conductor:</label>
+    <input type="text" id="driverId" placeholder="Ingresa tu ID">
+    <button onclick="startTracking()">Activar</button>
+    <button onclick="stopTracking()">Desactivar</button>
+    <button onclick="finishTrip()">Finalizar Viaje</button>
 
     <div id="map"></div>
-
-    <div class="form-group">
-        <h2>Pasajeros</h2>
-        <label for="searchAddress">Buscar Dirección:</label>
-        <input type="text" id="searchAddress" placeholder="Buscar dirección">
-        <button onclick="calculateDistance(-27.3876, -58.4560, passengerMarker.getPosition().lat(), passengerMarker.getPosition().lng())">Calcular Distancia</button>
-        <button onclick="assignDriver({ name: 'Conductor 1', location: { lat: -27.389, lng: -58.457 } })">Asignar Conductor</button>
-    </div>
-
 </body>
 </html>
