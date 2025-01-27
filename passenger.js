@@ -14,7 +14,7 @@ function initMap() {
     directionsRenderer = new google.maps.DirectionsRenderer();
     directionsRenderer.setMap(map);
 
-    // Crear autocompletado para origen y destino
+    // Habilitar Places Autocomplete en los campos de origen y destino
     originAutocomplete = new google.maps.places.Autocomplete(document.getElementById('origin'));
     destinationAutocomplete = new google.maps.places.Autocomplete(document.getElementById('destination'));
 
@@ -22,24 +22,7 @@ function initMap() {
     originAutocomplete.addListener('place_changed', function() {
         const place = originAutocomplete.getPlace();
         if (place.geometry) {
-            originLocation = place.geometry.location;
-            if (!originMarker) {
-                originMarker = new google.maps.Marker({
-                    map: map,
-                    position: originLocation,
-                    draggable: true,
-                    label: "Origen"
-                });
-                google.maps.event.addListener(originMarker, 'dragend', function(event) {
-                    originLocation = event.latLng;
-                    document.getElementById('origin').value = `${originLocation.lat()}, ${originLocation.lng()}`;
-                    calculateFare();
-                });
-            } else {
-                originMarker.setPosition(originLocation);
-            }
-            map.setCenter(originLocation);
-            calculateFare();
+            setOrigin(place.geometry.location);
         }
     });
 
@@ -47,60 +30,64 @@ function initMap() {
     destinationAutocomplete.addListener('place_changed', function() {
         const place = destinationAutocomplete.getPlace();
         if (place.geometry) {
-            destinationLocation = place.geometry.location;
-            if (!destinationMarker) {
-                destinationMarker = new google.maps.Marker({
-                    map: map,
-                    position: destinationLocation,
-                    draggable: true,
-                    label: "Destino"
-                });
-                google.maps.event.addListener(destinationMarker, 'dragend', function(event) {
-                    destinationLocation = event.latLng;
-                    document.getElementById('destination').value = `${destinationLocation.lat()}, ${destinationLocation.lng()}`;
-                    calculateFare();
-                });
-            } else {
-                destinationMarker.setPosition(destinationLocation);
-            }
-            map.setCenter(destinationLocation);
-            calculateFare();
+            setDestination(place.geometry.location);
         }
     });
 
     // Permitir seleccionar origen o destino tocando el mapa
     google.maps.event.addListener(map, 'click', function(event) {
         if (!originLocation) {
-            originLocation = event.latLng;
-            document.getElementById('origin').value = `${originLocation.lat()}, ${originLocation.lng()}`;
-            originMarker = new google.maps.Marker({
-                map: map,
-                position: originLocation,
-                draggable: true,
-                label: "Origen"
-            });
-            google.maps.event.addListener(originMarker, 'dragend', function(event) {
-                originLocation = event.latLng;
-                document.getElementById('origin').value = `${originLocation.lat()}, ${originLocation.lng()}`;
-                calculateFare();
-            });
+            setOrigin(event.latLng);
         } else if (!destinationLocation) {
-            destinationLocation = event.latLng;
-            document.getElementById('destination').value = `${destinationLocation.lat()}, ${destinationLocation.lng()}`;
-            destinationMarker = new google.maps.Marker({
-                map: map,
-                position: destinationLocation,
-                draggable: true,
-                label: "Destino"
-            });
-            google.maps.event.addListener(destinationMarker, 'dragend', function(event) {
-                destinationLocation = event.latLng;
-                document.getElementById('destination').value = `${destinationLocation.lat()}, ${destinationLocation.lng()}`;
-                calculateFare();
-            });
+            setDestination(event.latLng);
         }
-        calculateFare();
     });
+}
+
+// Función para establecer origen
+function setOrigin(location) {
+    originLocation = location;
+    document.getElementById('origin').value = ''; // Limpia el campo para autocompletado
+
+    if (!originMarker) {
+        originMarker = new google.maps.Marker({
+            map: map,
+            position: originLocation,
+            draggable: true,
+            label: "O"
+        });
+        google.maps.event.addListener(originMarker, 'dragend', function(event) {
+            originLocation = event.latLng;
+            calculateFare();
+        });
+    } else {
+        originMarker.setPosition(originLocation);
+    }
+    map.setCenter(originLocation);
+    calculateFare();
+}
+
+// Función para establecer destino
+function setDestination(location) {
+    destinationLocation = location;
+    document.getElementById('destination').value = ''; // Limpia el campo para autocompletado
+
+    if (!destinationMarker) {
+        destinationMarker = new google.maps.Marker({
+            map: map,
+            position: destinationLocation,
+            draggable: true,
+            label: "D"
+        });
+        google.maps.event.addListener(destinationMarker, 'dragend', function(event) {
+            destinationLocation = event.latLng;
+            calculateFare();
+        });
+    } else {
+        destinationMarker.setPosition(destinationLocation);
+    }
+    map.setCenter(destinationLocation);
+    calculateFare();
 }
 
 // Función para calcular la tarifa automáticamente
