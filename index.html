@@ -24,6 +24,20 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let origen, destino;
         
+        // Simulación de conductores
+        const conductores = [
+            { id: 1, lat: -27.7650, lng: -55.9090, nombre: "Conductor 1" },
+            { id: 2, lat: -27.7675, lng: -55.9070, nombre: "Conductor 2" },
+            { id: 3, lat: -27.7700, lng: -55.9050, nombre: "Conductor 3" }
+        ];
+
+        // Mostrar conductores en el mapa
+        const markersConductores = conductores.map(conductor => {
+            return L.marker([conductor.lat, conductor.lng])
+                    .addTo(map)
+                    .bindPopup(conductor.nombre);
+        });
+
         // Selección de origen y destino
         map.on('click', function(e) {
             if (!origen) {
@@ -35,14 +49,36 @@
                 calcularTarifa();
             }
         });
-        
+
         // Calcular tarifa
         function calcularTarifa() {
-            const distancia = map.distance(origen, destino) / 1000;
-            const tarifa = (distancia * 100).toFixed(2);
-            document.getElementById("tarifa").innerText = "$" + tarifa;
+            const distanciaOrigenDestino = map.distance(origen, destino) / 1000; // km
+            const tarifaBase = distanciaOrigenDestino * 100;
+            
+            // Buscar conductor más cercano
+            const conductorMasCercano = obtenerConductorMasCercano();
+            const distanciaConductorOrigen = map.distance(origen, conductorMasCercano) / 1000; // km
+            const tarifaTotal = (distanciaConductorOrigen + distanciaOrigenDestino) * 100;
+
+            document.getElementById("tarifa").innerText = "$" + tarifaTotal.toFixed(2);
         }
-        
+
+        // Función para obtener al conductor más cercano
+        function obtenerConductorMasCercano() {
+            let minDistancia = Infinity;
+            let conductorMasCercano;
+
+            conductores.forEach(conductor => {
+                const distancia = map.distance(origen, [conductor.lat, conductor.lng]);
+                if (distancia < minDistancia) {
+                    minDistancia = distancia;
+                    conductorMasCercano = [conductor.lat, conductor.lng];
+                }
+            });
+
+            return conductorMasCercano;
+        }
+
         // Confirmar viaje
         document.getElementById("confirmarViaje").addEventListener("click", function() {
             if (!origen || !destino) {
@@ -53,41 +89,16 @@
             asignarConductor();
         });
 
-        // Enviar datos de viaje a Make (a través de un Webhook)
-        function enviarDatosViaje() {
-            const origenCoords = { lat: origen.lat, lng: origen.lng };
-            const destinoCoords = { lat: destino.lat, lng: destino.lng };
-            const tarifa = (map.distance(origen, destino) / 1000 * 100).toFixed(2);
-            
-            const datosViaje = {
-                origen: JSON.stringify(origenCoords),
-                destino: JSON.stringify(destinoCoords),
-                tarifa: tarifa
-            };
-
-            fetch('https://hook.us2.make.com/tk84jh72enqpukn9tkaa6ykohgjaojry', {  // Tu Webhook de Make
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(datosViaje)
-            }).then(response => response.json())
-              .then(data => {
-                console.log("Datos enviados a Make: ", data);
-                document.getElementById("estadoViaje").innerText = "Viaje registrado.";
-              })
-              .catch(error => {
-                console.error("Error al enviar datos: ", error);
-              });
-        }
-        
         // Asignar conductor y mostrar en tiempo real
         function asignarConductor() {
-            // Aquí puedes simular la asignación de un conductor o manejarlo como prefieras
-            document.getElementById("estadoViaje").innerText = "Conductor asignado. En camino...";
+            // Obtener conductor más cercano
+            const conductorCercano = obtenerConductorMasCercano();
 
-            // Enviar datos de viaje a Make
-            enviarDatosViaje();
+            // Mostrar el marcador del conductor asignado
+            const marcadorConductor = L.marker(conductorCercano).addTo(map).bindPopup("Conductor asignado");
+            
+            // Actualizar estado
+            document.getElementById("estadoViaje").innerText = "Conductor asignado. En camino...";
         }
     </script>
 </body>
