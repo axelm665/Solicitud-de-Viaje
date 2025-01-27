@@ -7,14 +7,9 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
             margin: 0;
             padding: 0;
             background-color: #f8f8f8;
-        }
-        #map {
-            height: 70vh;
-            margin-top: 10px;
         }
         .container {
             max-width: 800px;
@@ -23,6 +18,19 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        #map {
+            height: 70vh;
+            margin-top: 20px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
         }
         .btn {
             background-color: #007BFF;
@@ -38,6 +46,13 @@
         .btn:hover {
             background-color: #0056b3;
         }
+        .btn-cancelar {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-cancelar:hover {
+            background-color: #c82333;
+        }
         .tarifa {
             font-size: 24px;
             font-weight: bold;
@@ -48,25 +63,10 @@
             color: #555;
             margin-top: 15px;
         }
-        .btn-cancelar {
-            background-color: #dc3545;
-            color: white;
-        }
-        .btn-cancelar:hover {
-            background-color: #c82333;
-        }
         .opciones {
             display: flex;
             justify-content: space-around;
             margin-top: 20px;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            margin: 10px 0;
-            border-radius: 5px;
-            border: 1px solid #ccc;
         }
     </style>
 </head>
@@ -77,16 +77,20 @@
         <p>Selecciona tu origen y destino en el mapa</p>
         
         <!-- Buscador de direcciones -->
-        <input id="origenInput" type="text" placeholder="Ingresa el origen">
-        <input id="destinoInput" type="text" placeholder="Ingresa el destino">
+        <input id="origenInput" type="text" placeholder="Ingresa el origen" autocomplete="off">
+        <input id="destinoInput" type="text" placeholder="Ingresa el destino" autocomplete="off">
         
         <div id="map"></div>
         <p class="tarifa">Tarifa estimada: <span id="tarifa">-</span></p>
+        
+        <!-- Opciones de tarifa -->
         <div id="opcionesTarifa" class="opciones" style="display: none;">
             <button id="tarifaMoto" class="btn">Moto: $500/km</button>
             <button id="tarifaAuto" class="btn">Auto: $1,000/km</button>
         </div>
-        <button id="confirmarViaje" class="btn">Confirmar Viaje</button>
+
+        <!-- Botones -->
+        <button id="confirmarViaje" class="btn" style="display: none;">Confirmar Viaje</button>
         <button id="cancelarViaje" class="btn btn-cancelar" style="display: none;">Cancelar Viaje</button>
         <p id="estadoViaje" class="estado"></p>
     </div>
@@ -98,22 +102,23 @@
         let map;
         let origen, destino;
         let tarifaSeleccionada;
+        let geocoder, distanciaService;
         let markersConductores = [
             { lat: -27.7650, lng: -55.9090, nombre: "Conductor 1" },
             { lat: -27.7675, lng: -55.9070, nombre: "Conductor 2" },
             { lat: -27.7700, lng: -55.9050, nombre: "Conductor 3" }
         ];
         let markersConductor = [];
-        let geocoder, distanciaService;
 
         function initMap() {
+            // Crear el mapa
             map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 13,
                 center: { lat: -27.7664, lng: -55.9087 },
                 mapTypeId: 'roadmap' // Mapa solo de calles
             });
 
-            // Autocompletar para el origen y destino
+            // Crear el autocompletado para el origen y destino
             const origenInput = document.getElementById('origenInput');
             const destinoInput = document.getElementById('destinoInput');
 
@@ -135,7 +140,7 @@
                 markersConductor.push(marker);
             });
 
-            // Escuchar cuando se seleccionan direcciones
+            // Agregar escuchadores para cuando se seleccionan direcciones
             autocompleteOrigen.addListener("place_changed", function() {
                 const place = autocompleteOrigen.getPlace();
                 if (place.geometry) {
