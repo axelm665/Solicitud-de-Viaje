@@ -4,284 +4,189 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solicitar Viaje</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&libraries=places&callback=initMap" async defer></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f8f8f8;
-        }
-        .container {
-            max-width: 800px;
-            margin: 20px auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-        #map {
-            height: 70vh;
-            margin-top: 20px;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            margin: 10px 0;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-        }
-        .btn {
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 20px;
-            transition: background-color 0.3s ease;
-        }
-        .btn:hover {
-            background-color: #0056b3;
-        }
-        .btn-cancelar {
-            background-color: #dc3545;
-            color: white;
-        }
-        .btn-cancelar:hover {
-            background-color: #c82333;
-        }
-        .tarifa {
-            font-size: 24px;
-            font-weight: bold;
-            margin-top: 15px;
-        }
-        .estado {
-            font-size: 18px;
-            color: #555;
-            margin-top: 15px;
-        }
-        .opciones {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 20px;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #map { height: 400px; }
+        #confirmarViaje { margin-top: 10px; }
+        #tarifa { font-weight: bold; }
     </style>
 </head>
 <body>
-
-    <div class="container">
-        <h1>Solicitar Viaje</h1>
-        <p>Selecciona tu origen y destino en el mapa</p>
-        
-        <!-- Buscador de direcciones -->
-        <input id="origenInput" type="text" placeholder="Ingresa el origen" autocomplete="off">
-        <input id="destinoInput" type="text" placeholder="Ingresa el destino" autocomplete="off">
-        
-        <div id="map"></div>
-        <p class="tarifa">Tarifa estimada: <span id="tarifa">-</span></p>
-        
-        <!-- Opciones de tarifa -->
-        <div id="opcionesTarifa" class="opciones" style="display: none;">
-            <button id="tarifaMoto" class="btn">Moto: $500/km</button>
-            <button id="tarifaAuto" class="btn">Auto: $1,000/km</button>
-        </div>
-
-        <!-- Botones -->
-        <button id="confirmarViaje" class="btn" style="display: none;">Confirmar Viaje</button>
-        <button id="cancelarViaje" class="btn btn-cancelar" style="display: none;">Cancelar Viaje</button>
-        <p id="estadoViaje" class="estado"></p>
-    </div>
-
-    <!-- Cargar Google Maps API -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&libraries=geometry,places,directions,visualization&callback=initMap" async defer></script>
+    <h1>Solicitar Viaje</h1>
+    <input id="origin" type="text" placeholder="Selecciona el origen">
+    <input id="destination" type="text" placeholder="Selecciona el destino">
+    <div id="map"></div>
+    <button id="confirmarViaje">Confirmar Viaje</button>
+    <p>Tarifa estimada: <span id="tarifa">-</span></p>
+    <p id="estadoViaje"></p>
 
     <script>
-        let map;
-        let origen, destino;
-        let tarifaSeleccionada;
-        let geocoder, distanciaService, directionsService, directionsRenderer;
-        let markersConductores = [
-            { lat: -27.7650, lng: -55.9090, nombre: "Conductor 1" },
-            { lat: -27.7675, lng: -55.9070, nombre: "Conductor 2" },
-            { lat: -27.7700, lng: -55.9050, nombre: "Conductor 3" }
-        ];
-        let markersConductor = [];
+        let map, originMarker, destinationMarker;
+        let origin, destination;
 
         function initMap() {
-            // Crear el mapa
-            map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 13,
-                center: { lat: -27.7664, lng: -55.9087 },
-                mapTypeId: 'roadmap' // Mapa solo de calles
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: -34.6037, lng: -58.3816 },
+                zoom: 12,
             });
 
-            // Crear el autocompletado para el origen y destino
-            const origenInput = document.getElementById('origenInput');
-            const destinoInput = document.getElementById('destinoInput');
+            const autocompleteOrigin = new google.maps.places.Autocomplete(document.getElementById("origin"));
+            const autocompleteDestination = new google.maps.places.Autocomplete(document.getElementById("destination"));
 
-            const autocompleteOrigen = new google.maps.places.Autocomplete(origenInput);
-            const autocompleteDestino = new google.maps.places.Autocomplete(destinoInput);
-
-            // Crear servicio de geocodificación, distance matrix y directions
-            geocoder = new google.maps.Geocoder();
-            distanciaService = new google.maps.DistanceMatrixService();
-            directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer({
-                map: map,
-                suppressMarkers: true
-            });
-
-            // Cargar los conductores en el mapa
-            markersConductores.forEach(conductor => {
-                let marker = new google.maps.Marker({
-                    position: { lat: conductor.lat, lng: conductor.lng },
+            autocompleteOrigin.addListener("place_changed", () => {
+                const place = autocompleteOrigin.getPlace();
+                origin = place.geometry.location;
+                if (originMarker) originMarker.setMap(null);
+                originMarker = new google.maps.Marker({
+                    position: origin,
                     map: map,
-                    title: conductor.nombre,
-                    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Car_icon.svg/512px-Car_icon.svg.png'
+                    title: "Origen",
                 });
-                markersConductor.push(marker);
+                calculateRoute();
             });
 
-            // Agregar escuchadores para cuando se seleccionan direcciones
-            autocompleteOrigen.addListener("place_changed", function() {
-                const place = autocompleteOrigen.getPlace();
-                if (place.geometry) {
-                    origen = place.geometry.location;
-                    new google.maps.Marker({
-                        position: origen,
-                        map: map,
-                        title: "Origen"
-                    });
-                    calcularTarifa();
-                }
-            });
-
-            autocompleteDestino.addListener("place_changed", function() {
-                const place = autocompleteDestino.getPlace();
-                if (place.geometry) {
-                    destino = place.geometry.location;
-                    new google.maps.Marker({
-                        position: destino,
-                        map: map,
-                        title: "Destino"
-                    });
-                    calcularTarifa();
-                }
+            autocompleteDestination.addListener("place_changed", () => {
+                const place = autocompleteDestination.getPlace();
+                destination = place.geometry.location;
+                if (destinationMarker) destinationMarker.setMap(null);
+                destinationMarker = new google.maps.Marker({
+                    position: destination,
+                    map: map,
+                    title: "Destino",
+                });
+                calculateRoute();
             });
         }
 
-        // Calcular tarifa
-        function calcularTarifa() {
-            if (!origen || !destino || !tarifaSeleccionada) {
+        function calculateRoute() {
+            if (!origin || !destination) return;
+
+            const service = new google.maps.DistanceMatrixService();
+            service.getDistanceMatrix(
+                {
+                    origins: [origin],
+                    destinations: [destination],
+                    travelMode: google.maps.TravelMode.DRIVING,
+                },
+                function (response, status) {
+                    if (status === google.maps.DistanceMatrixStatus.OK) {
+                        const distance = response.rows[0].elements[0].distance.value / 1000; // en kilómetros
+                        const tarifaMoto = distance * 500;
+                        const tarifaAuto = distance * 1000;
+                        document.getElementById("tarifa").innerText = `Moto: $${tarifaMoto.toFixed(2)} | Auto: $${tarifaAuto.toFixed(2)}`;
+                    }
+                }
+            );
+        }
+
+        document.getElementById("confirmarViaje").addEventListener("click", () => {
+            if (!origin || !destination) {
+                alert("Selecciona origen y destino.");
                 return;
             }
-            
-            // Usar DistanceMatrix para calcular la distancia entre origen y destino
-            distanciaService.getDistanceMatrix({
-                origins: [origen],
-                destinations: [destino],
-                travelMode: 'DRIVING',
-                unitSystem: google.maps.UnitSystem.METRIC
-            }, function(response, status) {
-                if (status === 'OK') {
-                    const distanciaKm = response.rows[0].elements[0].distance.value / 1000; // Distancia en km
-                    const tarifaBase = tarifaSeleccionada === 'moto' ? 500 : 1000; // Tarifa por km
-                    const tarifaTotal = (distanciaKm * tarifaBase).toFixed(2);
-                    document.getElementById("tarifa").innerText = "$" + tarifaTotal;
-                    mostrarOpcionesTarifa();
-                    calcularRuta();
+
+            document.getElementById("estadoViaje").innerText = "Buscando conductor...";
+            assignDriver();
+        });
+
+        function assignDriver() {
+            // Leer los datos de conductores desde Google Sheets
+            gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: 'YOUR_SPREADSHEET_ID',
+                range: 'Conductores!A:F',
+            }).then((response) => {
+                const conductores = response.result.values;
+                let closestDriver = null;
+                let closestDistance = Infinity;
+
+                conductores.forEach((driver) => {
+                    const driverLat = parseFloat(driver[2]);
+                    const driverLng = parseFloat(driver[3]);
+                    const driverLocation = new google.maps.LatLng(driverLat, driverLng);
+                    const distance = google.maps.geometry.spherical.computeDistanceBetween(driverLocation, origin);
+
+                    if (distance < closestDistance && driver[4] === "disponible") {
+                        closestDistance = distance;
+                        closestDriver = driver;
+                    }
+                });
+
+                if (closestDriver) {
+                    alert(`Conductor asignado: ${closestDriver[1]}`);
+                    updateDriverState(closestDriver[0], "ocupado"); // Actualizar el estado del conductor a "ocupado"
+                    document.getElementById("estadoViaje").innerText = `Conductor asignado: ${closestDriver[1]}`;
+                    saveTripData(closestDriver[0]);
+                } else {
+                    alert('No hay conductores disponibles.');
+                    document.getElementById("estadoViaje").innerText = "No hay conductores disponibles.";
                 }
             });
         }
 
-        // Calcular la ruta entre origen y destino
-        function calcularRuta() {
-            if (!origen || !destino) return;
-
-            const request = {
-                origin: origen,
-                destination: destino,
-                travelMode: 'DRIVING',
-                unitSystem: google.maps.UnitSystem.METRIC
+        function updateDriverState(driverId, newState) {
+            const params = {
+                spreadsheetId: 'YOUR_SPREADSHEET_ID',
+                range: `Conductores!E${driverId}`, // Asumiendo que la columna E contiene el estado
+                valueInputOption: 'RAW',
             };
 
-            directionsService.route(request, function(result, status) {
-                if (status === 'OK') {
-                    directionsRenderer.setDirections(result);
-                }
+            const valueRangeBody = {
+                values: [[newState]],
+            };
+
+            gapi.client.sheets.spreadsheets.values.update(params, valueRangeBody)
+                .then((response) => {
+                    console.log('Estado actualizado:', response);
+                });
+        }
+
+        function saveTripData(driverId) {
+            const tripData = [
+                [
+                    Date.now(), // ID del viaje
+                    origin.lat(),
+                    origin.lng(),
+                    destination.lat(),
+                    destination.lng(),
+                    "pendiente",
+                    driverId,
+                ],
+            ];
+
+            const params = {
+                spreadsheetId: 'YOUR_SPREADSHEET_ID',
+                range: 'Viajes!A:G',
+                valueInputOption: 'RAW',
+            };
+
+            const valueRangeBody = {
+                values: tripData,
+            };
+
+            gapi.client.sheets.spreadsheets.values.append(params, valueRangeBody)
+                .then((response) => {
+                    console.log("Viaje agregado: ", response);
+                })
+                .catch((error) => {
+                    console.error("Error al agregar viaje: ", error);
+                });
+        }
+
+        // Inicializar Google Sheets API
+        function start() {
+            gapi.client.init({
+                apiKey: 'YOUR_GOOGLE_API_KEY',
+                clientId: 'YOUR_GOOGLE_CLIENT_ID',
+                scope: 'https://www.googleapis.com/auth/spreadsheets',
+                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+            }).then(function () {
+                console.log("Google Sheets API inicializada.");
             });
         }
 
-        // Mostrar opciones de tarifas
-        function mostrarOpcionesTarifa() {
-            document.getElementById("opcionesTarifa").style.display = 'flex';
-        }
-
-        // Selección de tarifa
-        document.getElementById("tarifaMoto").addEventListener("click", function() {
-            tarifaSeleccionada = 'moto';
-            mostrarConductoresCercanos();
-        });
-
-        document.getElementById("tarifaAuto").addEventListener("click", function() {
-            tarifaSeleccionada = 'auto';
-            mostrarConductoresCercanos();
-        });
-
-        // Mostrar conductor más cercano
-        function mostrarConductoresCercanos() {
-            let minDistancia = Infinity;
-            let conductorMasCercano;
-
-            markersConductores.forEach(conductor => {
-                const distancia = google.maps.geometry.spherical.computeDistanceBetween(origen, new google.maps.LatLng(conductor.lat, conductor.lng));
-                if (distancia < minDistancia) {
-                    minDistancia = distancia;
-                    conductorMasCercano = conductor;
-                }
-            });
-
-            // Marcar el conductor más cercano
-            new google.maps.Marker({
-                position: { lat: conductorMasCercano.lat, lng: conductorMasCercano.lng },
-                map: map,
-                title: "Conductor más cercano"
-            });
-
-            calcularTarifa();
-        }
-
-        // Confirmar viaje
-        document.getElementById("confirmarViaje").addEventListener("click", function() {
-            if (!origen || !destino || !tarifaSeleccionada) {
-                alert("Selecciona origen, destino y tarifa.");
-                return;
-            }
-            document.getElementById("estadoViaje").innerText = "Buscando conductor...";
-            asignarConductor();
-            document.getElementById("cancelarViaje").style.display = 'inline-block';
-        });
-
-        // Asignar conductor y mostrar en el mapa
-        function asignarConductor() {
-            mostrarConductoresCercanos();
-            document.getElementById("estadoViaje").innerText = "Conductor asignado. En camino...";
-        }
-
-        // Cancelar viaje
-        document.getElementById("cancelarViaje").addEventListener("click", function() {
-            origen = null;
-            destino = null;
-            tarifaSeleccionada = null;
-            document.getElementById("estadoViaje").innerText = "";
-            document.getElementById("tarifa").innerText = "-";
-            document.getElementById("cancelarViaje").style.display = 'none';
-        });
-
+        gapi.load('client:auth2', start);
     </script>
-
 </body>
 </html>
