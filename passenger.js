@@ -3,6 +3,7 @@ let originLocation = null;
 let destinationLocation = null;
 let originAutocomplete, destinationAutocomplete;
 let directionsService, directionsRenderer;
+let geocoder;
 
 function initMap() {
     map = new google.maps.Map(document.getElementById('map'), {
@@ -13,12 +14,12 @@ function initMap() {
     directionsService = new google.maps.DirectionsService();
     directionsRenderer = new google.maps.DirectionsRenderer();
     directionsRenderer.setMap(map);
+    geocoder = new google.maps.Geocoder();
 
-    // Habilitar Places Autocomplete en los campos de origen y destino
+    // Habilitar autocompletado en origen y destino
     originAutocomplete = new google.maps.places.Autocomplete(document.getElementById('origin'));
     destinationAutocomplete = new google.maps.places.Autocomplete(document.getElementById('destination'));
 
-    // Evento al seleccionar un origen desde Places
     originAutocomplete.addListener('place_changed', function() {
         const place = originAutocomplete.getPlace();
         if (place.geometry) {
@@ -26,7 +27,6 @@ function initMap() {
         }
     });
 
-    // Evento al seleccionar un destino desde Places
     destinationAutocomplete.addListener('place_changed', function() {
         const place = destinationAutocomplete.getPlace();
         if (place.geometry) {
@@ -42,12 +42,14 @@ function initMap() {
             setDestination(event.latLng);
         }
     });
+
+    // Detectar ubicación del usuario y establecer como origen
+    setUserLocation();
 }
 
 // Función para establecer origen
 function setOrigin(location) {
     originLocation = location;
-    document.getElementById('origin').value = ''; // Limpia el campo para autocompletado
 
     if (!originMarker) {
         originMarker = new google.maps.Marker({
@@ -56,6 +58,7 @@ function setOrigin(location) {
             draggable: true,
             label: "O"
         });
+
         google.maps.event.addListener(originMarker, 'dragend', function(event) {
             originLocation = event.latLng;
             calculateFare();
@@ -63,6 +66,14 @@ function setOrigin(location) {
     } else {
         originMarker.setPosition(originLocation);
     }
+
+    // Obtener dirección del origen y ponerla en el campo de texto
+    geocoder.geocode({ location: originLocation }, function(results, status) {
+        if (status === 'OK' && results[0]) {
+            document.getElementById('origin').value = results[0].formatted_address;
+        }
+    });
+
     map.setCenter(originLocation);
     calculateFare();
 }
@@ -70,7 +81,6 @@ function setOrigin(location) {
 // Función para establecer destino
 function setDestination(location) {
     destinationLocation = location;
-    document.getElementById('destination').value = ''; // Limpia el campo para autocompletado
 
     if (!destinationMarker) {
         destinationMarker = new google.maps.Marker({
@@ -79,6 +89,7 @@ function setDestination(location) {
             draggable: true,
             label: "D"
         });
+
         google.maps.event.addListener(destinationMarker, 'dragend', function(event) {
             destinationLocation = event.latLng;
             calculateFare();
@@ -86,8 +97,27 @@ function setDestination(location) {
     } else {
         destinationMarker.setPosition(destinationLocation);
     }
+
     map.setCenter(destinationLocation);
     calculateFare();
+}
+
+// Función para detectar ubicación del usuario y establecerla como origen
+function setUserLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                setOrigin(userLocation);
+            },
+            () => {
+                console.log("Ubicación no permitida. Se mantiene Santo Tomé.");
+            }
+        );
+    }
 }
 
 // Función para calcular la tarifa automáticamente
