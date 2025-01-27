@@ -1,22 +1,22 @@
-// driver.js (para conductores)
-function startTracking() {
-    const driverId = document.getElementById('driverId').value;
-    navigator.geolocation.getCurrentPosition(function(position) {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        sendToWebhook('Activo', driverId, lat, lng);
-    });
-}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conductor - Servicio de Transporte</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Conductor - Ingreso</h1>
+        <label for="driverId">ID del Conductor:</label>
+        <input type="text" id="driverId" placeholder="Ingresa tu ID">
+        <button onclick="startTracking()">Activar</button>
+        <button onclick="stopTracking()">Desactivar</button>
+        <button onclick="finishTrip()">Finalizar Viaje</button>
+    </div>
 
-function stopTracking() {
-    const driverId = document.getElementById('driverId').value;
-    sendToWebhook('Inactivo', driverId);
-}
+    <script src="driver.js"></script>
+</body>
+</html>
 
-function sendToWebhook(status, driverId, lat = null, lng = null) {
-    fetch('https://hook.us2.make.com/TOKEN', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driverId, status, lat, lng })
-    });
-}
