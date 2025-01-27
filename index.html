@@ -6,6 +6,7 @@
     <title>Solicitar Viaje</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder@1.13.0/dist/Control.Geocoder.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -50,6 +51,18 @@
             color: #555;
             margin-top: 15px;
         }
+        .btn-cancelar {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-cancelar:hover {
+            background-color: #c82333;
+        }
+        .opciones {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -59,17 +72,28 @@
         <p>Selecciona tu origen y destino en el mapa</p>
         <div id="map"></div>
         <p class="tarifa">Tarifa estimada: <span id="tarifa">-</span></p>
+        <div id="opcionesTarifa" class="opciones" style="display: none;">
+            <button id="tarifaMoto" class="btn">Moto: $500/km</button>
+            <button id="tarifaAuto" class="btn">Auto: $1,000/km</button>
+        </div>
         <button id="confirmarViaje" class="btn">Confirmar Viaje</button>
+        <button id="cancelarViaje" class="btn btn-cancelar" style="display: none;">Cancelar Viaje</button>
         <p id="estadoViaje" class="estado"></p>
     </div>
 
     <script>
         // Inicializar el mapa
         const map = L.map('map').setView([-27.7664, -55.9087], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        let origen, destino;
 
-        // Datos de conductores (simulados)
+        // Usar un mapa oscuro
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        let origen, destino, tarifaSeleccionada;
+        let markersConductores = [];
+
+        // Datos de conductores simulados (desde Google Sheets)
         const conductores = [
             { id: 1, lat: -27.7650, lng: -55.9090, nombre: "Conductor 1" },
             { id: 2, lat: -27.7675, lng: -55.9070, nombre: "Conductor 2" },
@@ -83,13 +107,17 @@
             iconAnchor: [15, 15]
         });
 
-        const markersConductores = conductores.map(conductor => {
-            return L.marker([conductor.lat, conductor.lng], { icon: markerIcon })
-                    .addTo(map)
-                    .bindPopup(conductor.nombre);
+        conductores.forEach(conductor => {
+            const marker = L.marker([conductor.lat, conductor.lng], { icon: markerIcon })
+                            .addTo(map)
+                            .bindPopup(conductor.nombre);
+            markersConductores.push(marker);
         });
 
-        // Selección de origen y destino en el mapa
+        // Buscador de direcciones
+        L.Control.geocoder().addTo(map);
+
+        // Selección de origen y destino
         map.on('click', function(e) {
             if (!origen) {
                 origen = e.latlng;
@@ -97,25 +125,37 @@
             } else if (!destino) {
                 destino = e.latlng;
                 L.marker(destino).addTo(map).bindPopup("Destino").openPopup();
+                mostrarOpcionesTarifa();
                 calcularTarifa();
             }
         });
 
+        // Mostrar opciones de tarifas
+        function mostrarOpcionesTarifa() {
+            document.getElementById("opcionesTarifa").style.display = 'flex';
+        }
+
         // Calcular tarifa
         function calcularTarifa() {
             const distanciaOrigenDestino = map.distance(origen, destino) / 1000; // km
-            const tarifaBase = distanciaOrigenDestino * 100;
-
-            // Buscar conductor más cercano
-            const conductorMasCercano = obtenerConductorMasCercano();
-            const distanciaConductorOrigen = map.distance(origen, conductorMasCercano) / 1000; // km
-            const tarifaTotal = (distanciaConductorOrigen + distanciaOrigenDestino) * 100;
-
-            document.getElementById("tarifa").innerText = "$" + tarifaTotal.toFixed(2);
+            let tarifaBase = tarifaSeleccionada === 'moto' ? 500 : 1000;
+            let tarifaTotal = (distanciaOrigenDestino * tarifaBase).toFixed(2);
+            document.getElementById("tarifa").innerText = "$" + tarifaTotal;
         }
 
-        // Función para obtener el conductor más cercano al origen
-        function obtenerConductorMasCercano() {
+        // Selección de tarifa
+        document.getElementById("tarifaMoto").addEventListener("click", function() {
+            tarifaSeleccionada = 'moto';
+            mostrarConductoresCercanos();
+        });
+
+        document.getElementById("tarifaAuto").addEventListener("click", function() {
+            tarifaSeleccionada = 'auto';
+            mostrarConductoresCercanos();
+        });
+
+        // Mostrar conductor más cercano
+        function mostrarConductoresCercanos() {
             let minDistancia = Infinity;
             let conductorMasCercano;
 
@@ -123,35 +163,50 @@
                 const distancia = map.distance(origen, [conductor.lat, conductor.lng]);
                 if (distancia < minDistancia) {
                     minDistancia = distancia;
-                    conductorMasCercano = [conductor.lat, conductor.lng];
+                    conductorMasCercano = conductor;
                 }
             });
 
-            return conductorMasCercano;
+            // Marcar el conductor más cercano
+            L.marker([conductorMasCercano.lat, conductorMasCercano.lng], { icon: markerIcon })
+                .addTo(map)
+                .bindPopup("Conductor más cercano: " + conductorMasCercano.nombre);
+
+            calcularTarifa();
         }
 
         // Confirmar viaje
         document.getElementById("confirmarViaje").addEventListener("click", function() {
-            if (!origen || !destino) {
-                alert("Selecciona origen y destino en el mapa.");
+            if (!origen || !destino || !tarifaSeleccionada) {
+                alert("Selecciona origen, destino y tarifa.");
                 return;
             }
             document.getElementById("estadoViaje").innerText = "Buscando conductor...";
             asignarConductor();
+            document.getElementById("cancelarViaje").style.display = 'inline-block';
         });
 
-        // Asignar conductor más cercano y mostrarlo en el mapa
+        // Asignar conductor y mostrar en el mapa
         function asignarConductor() {
-            // Obtener conductor más cercano
-            const conductorCercano = obtenerConductorMasCercano();
-
-            // Mostrar marcador del conductor asignado
-            const marcadorConductor = L.marker(conductorCercano, { icon: markerIcon }).addTo(map)
-                .bindPopup("Conductor asignado");
-
-            // Actualizar estado
+            const conductorCercano = mostrarConductoresCercanos();
             document.getElementById("estadoViaje").innerText = "Conductor asignado. En camino...";
         }
+
+        // Cancelar viaje
+        document.getElementById("cancelarViaje").addEventListener("click", function() {
+            origen = null;
+            destino = null;
+            tarifaSeleccionada = null;
+            document.getElementById("estadoViaje").innerText = "";
+            document.getElementById("tarifa").innerText = "-";
+            document.getElementById("cancelarViaje").style.display = 'none';
+            map.eachLayer(function(layer) {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+        });
+
     </script>
 
 </body>
