@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitar Viaje</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <style>
+        #map { height: 400px; }
+        body { font-family: Arial, sans-serif; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>Solicitar Viaje</h1>
+    <div id="map"></div>
+    <p>Tarifa estimada: <span id="tarifa">-</span></p>
+    <button id="confirmarViaje">Confirmar Viaje</button>
+    <p id="estadoViaje"></p>
+
+    <script>
+        // Inicializar el mapa
+        const map = L.map('map').setView([-27.7664, -55.9087], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        let origen, destino;
+        
+        // Selección de origen y destino
+        map.on('click', function(e) {
+            if (!origen) {
+                origen = e.latlng;
+                L.marker(origen).addTo(map).bindPopup("Origen").openPopup();
+            } else if (!destino) {
+                destino = e.latlng;
+                L.marker(destino).addTo(map).bindPopup("Destino").openPopup();
+                calcularTarifa();
+            }
+        });
+        
+        // Calcular tarifa
+        function calcularTarifa() {
+            const distancia = map.distance(origen, destino) / 1000;
+            const tarifa = (distancia * 100).toFixed(2);
+            document.getElementById("tarifa").innerText = "$" + tarifa;
+        }
+        
+        // Confirmar viaje
+        document.getElementById("confirmarViaje").addEventListener("click", function() {
+            if (!origen || !destino) {
+                alert("Selecciona origen y destino en el mapa.");
+                return;
+            }
+            document.getElementById("estadoViaje").innerText = "Buscando conductor...";
+            asignarConductor();
+        });
+
+        // Enviar datos de viaje a Make (a través de un Webhook)
+        function enviarDatosViaje() {
+            const origenCoords = { lat: origen.lat, lng: origen.lng };
+            const destinoCoords = { lat: destino.lat, lng: destino.lng };
+            const tarifa = (map.distance(origen, destino) / 1000 * 100).toFixed(2);
+            
+            const datosViaje = {
+                origen: JSON.stringify(origenCoords),
+                destino: JSON.stringify(destinoCoords),
+                tarifa: tarifa
+            };
+
+            fetch('https://hook.us2.make.com/tk84jh72enqpukn9tkaa6ykohgjaojry', {  // Tu Webhook de Make
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(datosViaje)
+            }).then(response => response.json())
+              .then(data => {
+                console.log("Datos enviados a Make: ", data);
+                document.getElementById("estadoViaje").innerText = "Viaje registrado.";
+              })
+              .catch(error => {
+                console.error("Error al enviar datos: ", error);
+              });
+        }
+        
+        // Asignar conductor y mostrar en tiempo real
+        function asignarConductor() {
+            // Aquí puedes simular la asignación de un conductor o manejarlo como prefieras
+            document.getElementById("estadoViaje").innerText = "Conductor asignado. En camino...";
+
+            // Enviar datos de viaje a Make
+            enviarDatosViaje();
+        }
+    </script>
+</body>
+</html>
