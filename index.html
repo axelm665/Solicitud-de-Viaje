@@ -96,13 +96,13 @@
     </div>
 
     <!-- Cargar Google Maps API -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&libraries=geometry,places&callback=initMap" async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&libraries=geometry,places,directions,visualization&callback=initMap" async defer></script>
 
     <script>
         let map;
         let origen, destino;
         let tarifaSeleccionada;
-        let geocoder, distanciaService;
+        let geocoder, distanciaService, directionsService, directionsRenderer;
         let markersConductores = [
             { lat: -27.7650, lng: -55.9090, nombre: "Conductor 1" },
             { lat: -27.7675, lng: -55.9070, nombre: "Conductor 2" },
@@ -125,9 +125,14 @@
             const autocompleteOrigen = new google.maps.places.Autocomplete(origenInput);
             const autocompleteDestino = new google.maps.places.Autocomplete(destinoInput);
 
-            // Crear servicio de geocodificación y distance matrix
+            // Crear servicio de geocodificación, distance matrix y directions
             geocoder = new google.maps.Geocoder();
             distanciaService = new google.maps.DistanceMatrixService();
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                map: map,
+                suppressMarkers: true
+            });
 
             // Cargar los conductores en el mapa
             markersConductores.forEach(conductor => {
@@ -186,6 +191,26 @@
                     const tarifaBase = tarifaSeleccionada === 'moto' ? 500 : 1000; // Tarifa por km
                     const tarifaTotal = (distanciaKm * tarifaBase).toFixed(2);
                     document.getElementById("tarifa").innerText = "$" + tarifaTotal;
+                    mostrarOpcionesTarifa();
+                    calcularRuta();
+                }
+            });
+        }
+
+        // Calcular la ruta entre origen y destino
+        function calcularRuta() {
+            if (!origen || !destino) return;
+
+            const request = {
+                origin: origen,
+                destination: destino,
+                travelMode: 'DRIVING',
+                unitSystem: google.maps.UnitSystem.METRIC
+            };
+
+            directionsService.route(request, function(result, status) {
+                if (status === 'OK') {
+                    directionsRenderer.setDirections(result);
                 }
             });
         }
