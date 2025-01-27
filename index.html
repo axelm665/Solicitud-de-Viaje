@@ -4,9 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solicitar Viaje</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-control-geocoder@1.13.0/dist/Control.Geocoder.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,8 +12,8 @@
             padding: 0;
             background-color: #f8f8f8;
         }
-        #map { 
-            height: 80vh; 
+        #map {
+            height: 80vh;
             margin-top: 10px;
         }
         .container {
@@ -81,54 +78,61 @@
         <p id="estadoViaje" class="estado"></p>
     </div>
 
+    <!-- Cargar Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD_KYnfmIJtkZTTZm4AEzUCcsBNn77iDfU&callback=initMap" async defer></script>
+
     <script>
-        // Inicializar el mapa
-        const map = L.map('map').setView([-27.7664, -55.9087], 13);
+        let map;
+        let origen, destino;
+        let tarifaSeleccionada;
 
-        // Usar un mapa oscuro
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-        let origen, destino, tarifaSeleccionada;
-        let markersConductores = [];
-
-        // Datos de conductores simulados (desde Google Sheets)
-        const conductores = [
-            { id: 1, lat: -27.7650, lng: -55.9090, nombre: "Conductor 1" },
-            { id: 2, lat: -27.7675, lng: -55.9070, nombre: "Conductor 2" },
-            { id: 3, lat: -27.7700, lng: -55.9050, nombre: "Conductor 3" }
+        let markersConductores = [
+            { lat: -27.7650, lng: -55.9090, nombre: "Conductor 1" },
+            { lat: -27.7675, lng: -55.9070, nombre: "Conductor 2" },
+            { lat: -27.7700, lng: -55.9050, nombre: "Conductor 3" }
         ];
 
-        // Mostrar conductores en el mapa con íconos de autos
-        const markerIcon = L.icon({
-            iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Car_icon.svg/512px-Car_icon.svg.png',
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-        });
+        let markerOr, markerDest, markersConductor = [];
 
-        conductores.forEach(conductor => {
-            const marker = L.marker([conductor.lat, conductor.lng], { icon: markerIcon })
-                            .addTo(map)
-                            .bindPopup(conductor.nombre);
-            markersConductores.push(marker);
-        });
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 13,
+                center: { lat: -27.7664, lng: -55.9087 },
+                mapTypeId: 'roadmap' // Estilo "roadmap" de Google Maps solo calles
+            });
 
-        // Buscador de direcciones
-        L.Control.geocoder().addTo(map);
+            // Cargar los conductores en el mapa
+            markersConductores.forEach(conductor => {
+                let marker = new google.maps.Marker({
+                    position: { lat: conductor.lat, lng: conductor.lng },
+                    map: map,
+                    title: conductor.nombre,
+                    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Car_icon.svg/512px-Car_icon.svg.png'
+                });
+                markersConductor.push(marker);
+            });
 
-        // Selección de origen y destino
-        map.on('click', function(e) {
-            if (!origen) {
-                origen = e.latlng;
-                L.marker(origen).addTo(map).bindPopup("Origen").openPopup();
-            } else if (!destino) {
-                destino = e.latlng;
-                L.marker(destino).addTo(map).bindPopup("Destino").openPopup();
-                mostrarOpcionesTarifa();
-                calcularTarifa();
-            }
-        });
+            // Selección de origen y destino en el mapa
+            google.maps.event.addListener(map, 'click', function(event) {
+                if (!origen) {
+                    origen = event.latLng;
+                    markerOr = new google.maps.Marker({
+                        position: origen,
+                        map: map,
+                        title: "Origen"
+                    });
+                } else if (!destino) {
+                    destino = event.latLng;
+                    markerDest = new google.maps.Marker({
+                        position: destino,
+                        map: map,
+                        title: "Destino"
+                    });
+                    mostrarOpcionesTarifa();
+                    calcularTarifa();
+                }
+            });
+        }
 
         // Mostrar opciones de tarifas
         function mostrarOpcionesTarifa() {
@@ -137,7 +141,7 @@
 
         // Calcular tarifa
         function calcularTarifa() {
-            const distanciaOrigenDestino = map.distance(origen, destino) / 1000; // km
+            const distanciaOrigenDestino = google.maps.geometry.spherical.computeDistanceBetween(origen, destino) / 1000; // km
             let tarifaBase = tarifaSeleccionada === 'moto' ? 500 : 1000;
             let tarifaTotal = (distanciaOrigenDestino * tarifaBase).toFixed(2);
             document.getElementById("tarifa").innerText = "$" + tarifaTotal;
@@ -159,8 +163,8 @@
             let minDistancia = Infinity;
             let conductorMasCercano;
 
-            conductores.forEach(conductor => {
-                const distancia = map.distance(origen, [conductor.lat, conductor.lng]);
+            markersConductores.forEach(conductor => {
+                const distancia = google.maps.geometry.spherical.computeDistanceBetween(origen, new google.maps.LatLng(conductor.lat, conductor.lng));
                 if (distancia < minDistancia) {
                     minDistancia = distancia;
                     conductorMasCercano = conductor;
@@ -168,9 +172,11 @@
             });
 
             // Marcar el conductor más cercano
-            L.marker([conductorMasCercano.lat, conductorMasCercano.lng], { icon: markerIcon })
-                .addTo(map)
-                .bindPopup("Conductor más cercano: " + conductorMasCercano.nombre);
+            new google.maps.Marker({
+                position: { lat: conductorMasCercano.lat, lng: conductorMasCercano.lng },
+                map: map,
+                title: "Conductor más cercano"
+            });
 
             calcularTarifa();
         }
@@ -188,7 +194,7 @@
 
         // Asignar conductor y mostrar en el mapa
         function asignarConductor() {
-            const conductorCercano = mostrarConductoresCercanos();
+            mostrarConductoresCercanos();
             document.getElementById("estadoViaje").innerText = "Conductor asignado. En camino...";
         }
 
@@ -200,11 +206,8 @@
             document.getElementById("estadoViaje").innerText = "";
             document.getElementById("tarifa").innerText = "-";
             document.getElementById("cancelarViaje").style.display = 'none';
-            map.eachLayer(function(layer) {
-                if (layer instanceof L.Marker) {
-                    map.removeLayer(layer);
-                }
-            });
+            markerOr.setMap(null);
+            markerDest.setMap(null);
         });
 
     </script>
