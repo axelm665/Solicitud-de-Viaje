@@ -16,7 +16,7 @@ function initMap() {
     directionsRenderer.setMap(map);
     geocoder = new google.maps.Geocoder();
 
-    // Habilitar autocompletado en origen y destino
+    // Autocompletado para origen y destino
     originAutocomplete = new google.maps.places.Autocomplete(document.getElementById('origin'));
     destinationAutocomplete = new google.maps.places.Autocomplete(document.getElementById('destination'));
 
@@ -43,8 +43,8 @@ function initMap() {
         }
     });
 
-    // Detectar ubicación del usuario y establecer como origen
-    setUserLocation();
+    // Detectar ubicación del usuario y establecerla como origen
+    detectUserLocation();
 }
 
 // Función para establecer origen
@@ -61,19 +61,13 @@ function setOrigin(location) {
 
         google.maps.event.addListener(originMarker, 'dragend', function(event) {
             originLocation = event.latLng;
-            calculateFare();
+            updateAddress(originLocation, 'origin');
         });
     } else {
         originMarker.setPosition(originLocation);
     }
 
-    // Obtener dirección del origen y ponerla en el campo de texto
-    geocoder.geocode({ location: originLocation }, function(results, status) {
-        if (status === 'OK' && results[0]) {
-            document.getElementById('origin').value = results[0].formatted_address;
-        }
-    });
-
+    updateAddress(originLocation, 'origin');
     map.setCenter(originLocation);
     calculateFare();
 }
@@ -92,18 +86,19 @@ function setDestination(location) {
 
         google.maps.event.addListener(destinationMarker, 'dragend', function(event) {
             destinationLocation = event.latLng;
-            calculateFare();
+            updateAddress(destinationLocation, 'destination');
         });
     } else {
         destinationMarker.setPosition(destinationLocation);
     }
 
+    updateAddress(destinationLocation, 'destination');
     map.setCenter(destinationLocation);
     calculateFare();
 }
 
-// Función para detectar ubicación del usuario y establecerla como origen
-function setUserLocation() {
+// Función para detectar la ubicación del usuario y establecerla como origen
+function detectUserLocation() {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -118,6 +113,15 @@ function setUserLocation() {
             }
         );
     }
+}
+
+// Función para actualizar la dirección en el campo de texto
+function updateAddress(location, fieldId) {
+    geocoder.geocode({ location: location }, function(results, status) {
+        if (status === 'OK' && results[0]) {
+            document.getElementById(fieldId).value = results[0].formatted_address;
+        }
+    });
 }
 
 // Función para calcular la tarifa automáticamente
