@@ -3,190 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solicitar Viaje</title>
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&libraries=places&callback=initMap" async defer></script>
+    <title>Servicio de Transporte</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #map { height: 400px; }
-        #confirmarViaje { margin-top: 10px; }
-        #tarifa { font-weight: bold; }
+        /* Estilos básicos */
+        body { font-family: Arial, sans-serif; }
+        #map { height: 500px; width: 100%; }
+        .form-group { margin: 20px 0; }
     </style>
-</head>
-<body>
-    <h1>Solicitar Viaje</h1>
-    <input id="origin" type="text" placeholder="Selecciona el origen">
-    <input id="destination" type="text" placeholder="Selecciona el destino">
-    <div id="map"></div>
-    <button id="confirmarViaje">Confirmar Viaje</button>
-    <p>Tarifa estimada: <span id="tarifa">-</span></p>
-    <p id="estadoViaje"></p>
-
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&callback=initMap" async defer></script>
     <script>
-        let map, originMarker, destinationMarker;
-        let origin, destination;
+        // Variables globales
+        let map, passengerMarker, driverMarkers = [];
+        let driverStatus = 'Inactivo';
+        let activeDriverId = null;
 
+        // Inicializar el mapa
         function initMap() {
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: -34.6037, lng: -58.3816 },
-                zoom: 12,
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: -27.3876, lng: -58.4560 }, // Coordenadas de Santo Tomé, Corrientes
+                zoom: 14
             });
-
-            const autocompleteOrigin = new google.maps.places.Autocomplete(document.getElementById("origin"));
-            const autocompleteDestination = new google.maps.places.Autocomplete(document.getElementById("destination"));
-
-            autocompleteOrigin.addListener("place_changed", () => {
-                const place = autocompleteOrigin.getPlace();
-                origin = place.geometry.location;
-                if (originMarker) originMarker.setMap(null);
-                originMarker = new google.maps.Marker({
-                    position: origin,
-                    map: map,
-                    title: "Origen",
-                });
-                calculateRoute();
-            });
-
-            autocompleteDestination.addListener("place_changed", () => {
-                const place = autocompleteDestination.getPlace();
-                destination = place.geometry.location;
-                if (destinationMarker) destinationMarker.setMap(null);
-                destinationMarker = new google.maps.Marker({
-                    position: destination,
-                    map: map,
-                    title: "Destino",
-                });
-                calculateRoute();
+            passengerMarker = new google.maps.Marker({
+                map: map,
+                draggable: true,
+                title: "Tu Ubicación"
             });
         }
 
-        function calculateRoute() {
-            if (!origin || !destination) return;
+        // Función para enviar la ubicación al webhook de Make
+        function sendToWebhook(status, driverId = null) {
+            fetch('https://hook.us2.make.com/tk84jh72enqpukn9tkaa6ykohgjaojry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: status,
+                    driver_id: driverId,
+                    location: passengerMarker.getPosition(),
+                    active_driver_id: activeDriverId
+                })
+            }).then(response => response.json())
+              .then(data => console.log('Webhook Response:', data))
+              .catch(error => console.error('Error:', error));
+        }
 
+        // Función para activar el conductor
+        function activateDriver(driverId) {
+            driverStatus = 'Activo';
+            activeDriverId = driverId;
+            sendToWebhook('Activo', driverId);
+        }
+
+        // Función para desactivar el conductor
+        function deactivateDriver() {
+            driverStatus = 'Inactivo';
+            sendToWebhook('Inactivo', activeDriverId);
+            activeDriverId = null;
+        }
+
+        // Función para finalizar viaje
+        function finishTrip() {
+            sendToWebhook('Disponible');
+        }
+
+        // Función para calcular la distancia entre dos puntos usando Google Maps API
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const origin = new google.maps.LatLng(lat1, lng1);
+            const destination = new google.maps.LatLng(lat2, lng2);
             const service = new google.maps.DistanceMatrixService();
             service.getDistanceMatrix(
                 {
                     origins: [origin],
                     destinations: [destination],
-                    travelMode: google.maps.TravelMode.DRIVING,
+                    travelMode: google.maps.TravelMode.DRIVING
                 },
-                function (response, status) {
-                    if (status === google.maps.DistanceMatrixStatus.OK) {
-                        const distance = response.rows[0].elements[0].distance.value / 1000; // en kilómetros
-                        const tarifaMoto = distance * 500;
-                        const tarifaAuto = distance * 1000;
-                        document.getElementById("tarifa").innerText = `Moto: $${tarifaMoto.toFixed(2)} | Auto: $${tarifaAuto.toFixed(2)}`;
+                (response, status) => {
+                    if (status === 'OK') {
+                        const distance = response.rows[0].elements[0].distance.text;
+                        alert('Distancia: ' + distance);
                     }
                 }
             );
         }
 
-        document.getElementById("confirmarViaje").addEventListener("click", () => {
-            if (!origin || !destination) {
-                alert("Selecciona origen y destino.");
-                return;
-            }
-
-            document.getElementById("estadoViaje").innerText = "Buscando conductor...";
-            assignDriver();
-        });
-
-        function assignDriver() {
-            // Leer los datos de conductores desde Google Sheets
-            gapi.client.sheets.spreadsheets.values.get({
-                spreadsheetId: 'YOUR_SPREADSHEET_ID',
-                range: 'Conductores!A:F',
-            }).then((response) => {
-                const conductores = response.result.values;
-                let closestDriver = null;
-                let closestDistance = Infinity;
-
-                conductores.forEach((driver) => {
-                    const driverLat = parseFloat(driver[2]);
-                    const driverLng = parseFloat(driver[3]);
-                    const driverLocation = new google.maps.LatLng(driverLat, driverLng);
-                    const distance = google.maps.geometry.spherical.computeDistanceBetween(driverLocation, origin);
-
-                    if (distance < closestDistance && driver[4] === "disponible") {
-                        closestDistance = distance;
-                        closestDriver = driver;
-                    }
-                });
-
-                if (closestDriver) {
-                    alert(`Conductor asignado: ${closestDriver[1]}`);
-                    updateDriverState(closestDriver[0], "ocupado"); // Actualizar el estado del conductor a "ocupado"
-                    document.getElementById("estadoViaje").innerText = `Conductor asignado: ${closestDriver[1]}`;
-                    saveTripData(closestDriver[0]);
-                } else {
-                    alert('No hay conductores disponibles.');
-                    document.getElementById("estadoViaje").innerText = "No hay conductores disponibles.";
-                }
+        // Función para asignar conductor al pasajero
+        function assignDriver(driver) {
+            new google.maps.Marker({
+                position: driver.location,
+                map: map,
+                icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                title: driver.name
             });
+            alert('Conductor asignado: ' + driver.name);
         }
-
-        function updateDriverState(driverId, newState) {
-            const params = {
-                spreadsheetId: 'YOUR_SPREADSHEET_ID',
-                range: `Conductores!E${driverId}`, // Asumiendo que la columna E contiene el estado
-                valueInputOption: 'RAW',
-            };
-
-            const valueRangeBody = {
-                values: [[newState]],
-            };
-
-            gapi.client.sheets.spreadsheets.values.update(params, valueRangeBody)
-                .then((response) => {
-                    console.log('Estado actualizado:', response);
-                });
-        }
-
-        function saveTripData(driverId) {
-            const tripData = [
-                [
-                    Date.now(), // ID del viaje
-                    origin.lat(),
-                    origin.lng(),
-                    destination.lat(),
-                    destination.lng(),
-                    "pendiente",
-                    driverId,
-                ],
-            ];
-
-            const params = {
-                spreadsheetId: 'YOUR_SPREADSHEET_ID',
-                range: 'Viajes!A:G',
-                valueInputOption: 'RAW',
-            };
-
-            const valueRangeBody = {
-                values: tripData,
-            };
-
-            gapi.client.sheets.spreadsheets.values.append(params, valueRangeBody)
-                .then((response) => {
-                    console.log("Viaje agregado: ", response);
-                })
-                .catch((error) => {
-                    console.error("Error al agregar viaje: ", error);
-                });
-        }
-
-        // Inicializar Google Sheets API
-        function start() {
-            gapi.client.init({
-                apiKey: 'YOUR_GOOGLE_API_KEY',
-                clientId: 'YOUR_GOOGLE_CLIENT_ID',
-                scope: 'https://www.googleapis.com/auth/spreadsheets',
-                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-            }).then(function () {
-                console.log("Google Sheets API inicializada.");
-            });
-        }
-
-        gapi.load('client:auth2', start);
     </script>
+</head>
+<body>
+
+    <h1>Servicio de Transporte</h1>
+
+    <div class="form-group">
+        <h2>Inicio de sesión</h2>
+        <label for="userId">ID de Conductor:</label>
+        <input type="text" id="userId" placeholder="Ingresa tu ID">
+        <button onclick="activateDriver(document.getElementById('userId').value)">Activar Conductor</button>
+        <button onclick="deactivateDriver()">Desactivar Conductor</button>
+        <button onclick="finishTrip()">Finalizar Viaje</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="form-group">
+        <h2>Pasajeros</h2>
+        <label for="searchAddress">Buscar Dirección:</label>
+        <input type="text" id="searchAddress" placeholder="Buscar dirección">
+        <button onclick="calculateDistance(-27.3876, -58.4560, passengerMarker.getPosition().lat(), passengerMarker.getPosition().lng())">Calcular Distancia</button>
+        <button onclick="assignDriver({ name: 'Conductor 1', location: { lat: -27.389, lng: -58.457 } })">Asignar Conductor</button>
+    </div>
+
 </body>
 </html>
