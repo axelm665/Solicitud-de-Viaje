@@ -13,7 +13,7 @@
             background-color: #f8f8f8;
         }
         #map {
-            height: 80vh;
+            height: 70vh;
             margin-top: 10px;
         }
         .container {
@@ -60,6 +60,14 @@
             justify-content: space-around;
             margin-top: 20px;
         }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body>
@@ -67,6 +75,11 @@
     <div class="container">
         <h1>Solicitar Viaje</h1>
         <p>Selecciona tu origen y destino en el mapa</p>
+        
+        <!-- Buscador de direcciones -->
+        <input id="origenInput" type="text" placeholder="Ingresa el origen">
+        <input id="destinoInput" type="text" placeholder="Ingresa el destino">
+        
         <div id="map"></div>
         <p class="tarifa">Tarifa estimada: <span id="tarifa">-</span></p>
         <div id="opcionesTarifa" class="opciones" style="display: none;">
@@ -79,27 +92,37 @@
     </div>
 
     <!-- Cargar Google Maps API -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&callback=initMap" async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCUHs9GkMFd5CC9HkwZdQRe8okW6WqA8K0&libraries=geometry,places&callback=initMap" async defer></script>
 
     <script>
         let map;
         let origen, destino;
         let tarifaSeleccionada;
-
         let markersConductores = [
             { lat: -27.7650, lng: -55.9090, nombre: "Conductor 1" },
             { lat: -27.7675, lng: -55.9070, nombre: "Conductor 2" },
             { lat: -27.7700, lng: -55.9050, nombre: "Conductor 3" }
         ];
-
-        let markerOr, markerDest, markersConductor = [];
+        let markersConductor = [];
+        let geocoder, distanciaService;
 
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 13,
                 center: { lat: -27.7664, lng: -55.9087 },
-                mapTypeId: 'roadmap' // Estilo "roadmap" de Google Maps solo calles
+                mapTypeId: 'roadmap' // Mapa solo de calles
             });
+
+            // Autocompletar para el origen y destino
+            const origenInput = document.getElementById('origenInput');
+            const destinoInput = document.getElementById('destinoInput');
+
+            const autocompleteOrigen = new google.maps.places.Autocomplete(origenInput);
+            const autocompleteDestino = new google.maps.places.Autocomplete(destinoInput);
+
+            // Crear servicio de geocodificación y distance matrix
+            geocoder = new google.maps.Geocoder();
+            distanciaService = new google.maps.DistanceMatrixService();
 
             // Cargar los conductores en el mapa
             markersConductores.forEach(conductor => {
@@ -112,24 +135,52 @@
                 markersConductor.push(marker);
             });
 
-            // Selección de origen y destino en el mapa
-            google.maps.event.addListener(map, 'click', function(event) {
-                if (!origen) {
-                    origen = event.latLng;
-                    markerOr = new google.maps.Marker({
+            // Escuchar cuando se seleccionan direcciones
+            autocompleteOrigen.addListener("place_changed", function() {
+                const place = autocompleteOrigen.getPlace();
+                if (place.geometry) {
+                    origen = place.geometry.location;
+                    new google.maps.Marker({
                         position: origen,
                         map: map,
                         title: "Origen"
                     });
-                } else if (!destino) {
-                    destino = event.latLng;
-                    markerDest = new google.maps.Marker({
+                    calcularTarifa();
+                }
+            });
+
+            autocompleteDestino.addListener("place_changed", function() {
+                const place = autocompleteDestino.getPlace();
+                if (place.geometry) {
+                    destino = place.geometry.location;
+                    new google.maps.Marker({
                         position: destino,
                         map: map,
                         title: "Destino"
                     });
-                    mostrarOpcionesTarifa();
                     calcularTarifa();
+                }
+            });
+        }
+
+        // Calcular tarifa
+        function calcularTarifa() {
+            if (!origen || !destino || !tarifaSeleccionada) {
+                return;
+            }
+            
+            // Usar DistanceMatrix para calcular la distancia entre origen y destino
+            distanciaService.getDistanceMatrix({
+                origins: [origen],
+                destinations: [destino],
+                travelMode: 'DRIVING',
+                unitSystem: google.maps.UnitSystem.METRIC
+            }, function(response, status) {
+                if (status === 'OK') {
+                    const distanciaKm = response.rows[0].elements[0].distance.value / 1000; // Distancia en km
+                    const tarifaBase = tarifaSeleccionada === 'moto' ? 500 : 1000; // Tarifa por km
+                    const tarifaTotal = (distanciaKm * tarifaBase).toFixed(2);
+                    document.getElementById("tarifa").innerText = "$" + tarifaTotal;
                 }
             });
         }
@@ -137,14 +188,6 @@
         // Mostrar opciones de tarifas
         function mostrarOpcionesTarifa() {
             document.getElementById("opcionesTarifa").style.display = 'flex';
-        }
-
-        // Calcular tarifa
-        function calcularTarifa() {
-            const distanciaOrigenDestino = google.maps.geometry.spherical.computeDistanceBetween(origen, destino) / 1000; // km
-            let tarifaBase = tarifaSeleccionada === 'moto' ? 500 : 1000;
-            let tarifaTotal = (distanciaOrigenDestino * tarifaBase).toFixed(2);
-            document.getElementById("tarifa").innerText = "$" + tarifaTotal;
         }
 
         // Selección de tarifa
@@ -206,8 +249,6 @@
             document.getElementById("estadoViaje").innerText = "";
             document.getElementById("tarifa").innerText = "-";
             document.getElementById("cancelarViaje").style.display = 'none';
-            markerOr.setMap(null);
-            markerDest.setMap(null);
         });
 
     </script>
